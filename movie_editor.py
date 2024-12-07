@@ -135,35 +135,35 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Trim, concatenate, fade, play videos, or add audio to a video.")
     subparsers = parser.add_subparsers(dest="command")
 
-    trim_parser = subparsers.add_parser("trim", help="Trim a video from start time to end time.")
+    trim_parser = subparsers.add_parser("trim", aliases=["t"], help="Trim a video from start time to end time.")
     trim_parser.add_argument("-f", "--filename", help="The name of the file to process.", required=True)
     trim_parser.add_argument("-s", "--start", help="The start time in HH:MM:SS or MM:SS format.", required=True)
     trim_parser.add_argument("-e", "--end", help="The end time in HH:MM:SS or MM:SS format.", required=True)
     trim_parser.add_argument("-o", "--output", help="The name of the output file.", required=True)
 
-    concat_parser = subparsers.add_parser("concat", help="Concatenate two videos.")
+    concat_parser = subparsers.add_parser("concat", aliases=["c"], help="Concatenate two videos.")
     concat_parser.add_argument("-f1", "--filename1", help="The name of the first file to process.", required=True)
     concat_parser.add_argument("-f2", "--filename2", help="The name of the second file to process.", required=True)
     concat_parser.add_argument("-o", "--output", help="The name of the output file.", required=True)
 
-    audio_parser = subparsers.add_parser("add_audio", help="Add a WAV file to the sound of the video.")
+    audio_parser = subparsers.add_parser("add_audio", aliases=["aa"], help="Add a WAV file to the sound of the video.")
     audio_parser.add_argument("-v", "--video_filename", help="The name of the video file to process.", required=True)
     audio_parser.add_argument("-a", "--audio_filename", help="The name of the audio file to add.", required=True)
     audio_parser.add_argument("-o", "--output", help="The name of the output file.", required=True)
 
-    fade_parser = subparsers.add_parser("fade", help="Fade one video into another.")
+    fade_parser = subparsers.add_parser("fade", aliases=["f"], help="Fade one video into another.")
     fade_parser.add_argument("-f1", "--filename1", help="The name of the first file to process.", required=True)
     fade_parser.add_argument("-f2", "--filename2", help="The name of the second file to process.", required=True)
     fade_parser.add_argument("-o", "--output", help="The name of the output file.", required=True)
     fade_parser.add_argument("-d", "--duration", type=int, default=1, help="Duration of the fade effect in seconds.")
 
-    play_parser = subparsers.add_parser("play", help="Play a video.")
+    play_parser = subparsers.add_parser("play", aliases=["p"], help="Play a video.")
     play_parser.add_argument("-f", "--filename", help="The name of the file to play.", required=True)
 
-    play_all_parser = subparsers.add_parser("play_all_videos_in_folder", help="Play all videos in a folder.")
+    play_all_parser = subparsers.add_parser("play_all_videos_in_folder", aliases=["paf", "pavif", "play_all", "pa"], help="Play all videos in a folder.")
     play_all_parser.add_argument("-d", "--folder", help="The name of the folder to process.", required=True)
 
-    concat_folder_parser = subparsers.add_parser("concatenate_videos_in_folder", help="Concatenate all videos in a folder.")
+    concat_folder_parser = subparsers.add_parser("concatenate_videos_in_folder", aliases=["cvf","cf","concat_folder"], help="Concatenate all videos in a folder.")
     concat_folder_parser.add_argument("-d", "--folder", help="The name of the folder to process.", required=True)
     concat_folder_parser.add_argument("-o", "--output", help="The name of the output file.", required=True)
 
