@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,201 +10,303 @@ import (
 )
 
 func timeToSeconds(timeStr string) (int, error) {
+	fmt.Printf("Converting time string %s to seconds\n", timeStr)
 	parts := strings.Split(timeStr, ":")
-	if len(parts) == 2 {
-		minutes, err := strconv.Atoi(parts[0])
-		if err != nil {
-			return 0, err
-		}
-		seconds, err := strconv.Atoi(parts[1])
-		if err != nil {
-			return 0, err
-		}
-		return minutes*60 + seconds, nil
-	} else if len(parts) == 3 {
-		hours, err := strconv.Atoi(parts[0])
-		if err != nil {
-			return 0, err
-		}
-		minutes, err := strconv.Atoi(parts[1])
-		if err != nil {
-			return 0, err
-		}
-		seconds, err := strconv.Atoi(parts[2])
-		if err != nil {
-			return 0, err
-		}
-		return hours*3600 + minutes*60 + seconds, nil
-	} else {
+	if len(parts) < 2 || len(parts) > 3 {
 		return 0, fmt.Errorf("invalid time format. Use HH:MM:SS or MM:SS")
 	}
-}
 
-func runFFmpeg(args ...string) error {
-	cmd := exec.Command("ffmpeg", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
-}
+	var h, m, s int
+	var err error
 
-func trimVideo(filename, startTimeStr, endTimeStr, outputFilename string) error {
-	if _, err := os.Stat(filename); os.IsNotExist(err) {
-		return fmt.Errorf("the file %s does not exist", filename)
-	}
-
-	startTime, err := timeToSeconds(startTimeStr)
-	if err != nil {
-		return err
-	}
-	endTime, err := timeToSeconds(endTimeStr)
-	if err != nil {
-		return err
-	}
-
-	startTimeStr = fmt.Sprintf("%02d:%02d:%02d", startTime/3600, (startTime%3600)/60, startTime%60)
-	endTimeStr = fmt.Sprintf("%02d:%02d:%02d", endTime/3600, (endTime%3600)/60, endTime%60)
-
-	return runFFmpeg("-i", filename, "-ss", startTimeStr, "-to", endTimeStr, "-c", "copy", outputFilename)
-}
-
-func concatenateVideos(filename1, filename2, outputFilename string) error {
-	if _, err := os.Stat(filename1); os.IsNotExist(err) {
-		return fmt.Errorf("the file %s does not exist", filename1)
-	}
-	if _, err := os.Stat(filename2); os.IsNotExist(err) {
-		return fmt.Errorf("the file %s does not exist", filename2)
-	}
-
-	listFile := "concat_list.txt"
-	listContent := fmt.Sprintf("file '%s'\nfile '%s'\n", filename1, filename2)
-	err := os.WriteFile(listFile, []byte(listContent), 0644)
-	if err != nil {
-		return err
-	}
-	defer os.Remove(listFile)
-
-	return runFFmpeg("-f", "concat", "-safe", "0", "-i", listFile, "-c", "copy", outputFilename)
-}
-
-func addAudioToVideo(videoFilename, audioFilename, outputFilename string) error {
-	if _, err := os.Stat(videoFilename); os.IsNotExist(err) {
-		return fmt.Errorf("the file %s does not exist", videoFilename)
-	}
-	if _, err := os.Stat(audioFilename); os.IsNotExist(err) {
-		return fmt.Errorf("the file %s does not exist", audioFilename)
-	}
-
-	return runFFmpeg("-i", videoFilename, "-i", audioFilename, "-c:v", "copy", "-c:a", "aac", "-strict", "experimental", outputFilename)
-}
-
-func splitVideo(filename, splitDurationStr string) error {
-	if _, err := os.Stat(filename); os.IsNotExist(err) {
-		return fmt.Errorf("the file %s does not exist", filename)
-	}
-
-	splitDuration, err := timeToSeconds(splitDurationStr)
-	if err != nil {
-		return err
-	}
-
-	videoDurationCmd := exec.Command("ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", filename)
-	output, err := videoDurationCmd.Output()
-	if err != nil {
-		return err
-	}
-
-	videoDuration, err := strconv.ParseFloat(strings.TrimSpace(string(output)), 64)
-	if err != nil {
-		return err
-	}
-
-	for startTime := 0; startTime < int(videoDuration); startTime += splitDuration {
-		endTime := startTime + splitDuration
-		if endTime > int(videoDuration) {
-			endTime = int(videoDuration)
-		}
-		outputFilename := fmt.Sprintf("%s_part%d.mp4", strings.TrimSuffix(filename, filepath.Ext(filename)), startTime/splitDuration+1)
-		startTimeStr := fmt.Sprintf("%02d:%02d:%02d", startTime/3600, (startTime%3600)/60, startTime%60)
-		endTimeStr := fmt.Sprintf("%02d:%02d:%02d", endTime/3600, (endTime%3600)/60, endTime%60)
-		err := runFFmpeg("-i", filename, "-ss", startTimeStr, "-to", endTimeStr, "-c", "copy", outputFilename)
+	if len(parts) == 3 {
+		h, err = strconv.Atoi(parts[0])
 		if err != nil {
-			return err
+			return 0, err
 		}
-		fmt.Printf("Created %s\n", outputFilename)
+		m, err = strconv.Atoi(parts[1])
+		if err != nil {
+			return 0, err
+		}
+		s, err = strconv.Atoi(parts[2])
+		if err != nil {
+			return 0, err
+		}
+	} else {
+		m, err = strconv.Atoi(parts[0])
+		if err != nil {
+			return 0, err
+		}
+		s, err = strconv.Atoi(parts[1])
+		if err != nil {
+			return 0, err
+		}
 	}
 
-	return nil
+	seconds := h*3600 + m*60 + s
+	fmt.Printf("Converted time string %s to %d seconds\n", timeStr, seconds)
+	return seconds, nil
+}
+
+func checkFileExists(filename string) bool {
+	fmt.Printf("Checking if file %s exists\n", filename)
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		fmt.Printf("Error: The file %s does not exist.\n", filename)
+		return false
+	}
+	fmt.Printf("File %s exists\n", filename)
+	return true
+}
+
+func handleError(err error) {
+	fmt.Printf("Error: %v\n", err)
+	fmt.Println("Files in the current directory:")
+	files, _ := os.ReadDir(".")
+	for _, file := range files {
+		fmt.Println(file.Name())
+	}
+}
+
+func runFFmpegCommand(command string) {
+	fmt.Printf("Running command: %s\n", command)
+	cmd := exec.Command("sh", "-c", command)
+	err := cmd.Run()
+	if err != nil {
+		handleError(err)
+	}
+}
+
+func createFileList(filenames []string) (string, error) {
+	file, err := os.Create("videos.txt")
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	for _, filename := range filenames {
+		file.WriteString(fmt.Sprintf("file '%s'\n", filename))
+	}
+
+	return "videos.txt", nil
+}
+
+func trimVideo(filename, startTime, endTime, outputFilename string) {
+	fmt.Printf("Trimming video %s from %s to %s, outputting to %s\n", filename, startTime, endTime, outputFilename)
+	if !checkFileExists(filename) {
+		return
+	}
+
+	startTimeSec, err := timeToSeconds(startTime)
+	if err != nil {
+		handleError(err)
+		return
+	}
+	endTimeSec, err := timeToSeconds(endTime)
+	if err != nil {
+		handleError(err)
+		return
+	}
+
+	command := fmt.Sprintf("ffmpeg -i %s -ss %d -to %d -c copy %s", filename, startTimeSec, endTimeSec, outputFilename)
+	runFFmpegCommand(command)
+	fmt.Printf("Video trimmed and saved as %s\n", outputFilename)
+}
+
+func concatenateVideos(filenames []string, outputFilename string) {
+	fmt.Printf("Concatenating videos %v, outputting to %s\n", filenames, outputFilename)
+	for _, filename := range filenames {
+		if !checkFileExists(filename) {
+			return
+		}
+	}
+
+	fileList, err := createFileList(filenames)
+	if err != nil {
+		handleError(err)
+		return
+	}
+	defer os.Remove(fileList)
+
+	command := fmt.Sprintf("ffmpeg -f concat -safe 0 -i %s -c copy %s", fileList, outputFilename)
+	runFFmpegCommand(command)
+	fmt.Printf("Videos concatenated and saved as %s\n", outputFilename)
+}
+
+func concatenateVideosInFolder(folder, outputFilename string) {
+	fmt.Printf("Concatenating all videos in folder %s, outputting to %s\n", folder, outputFilename)
+	if _, err := os.Stat(folder); os.IsNotExist(err) {
+		fmt.Printf("Error: The folder %s does not exist.\n", folder)
+		return
+	}
+
+	files, err := os.ReadDir(folder)
+	if err != nil {
+		handleError(err)
+		return
+	}
+
+	var videoFiles []string
+	for _, file := range files {
+		if strings.HasSuffix(file.Name(), ".mp4") || strings.HasSuffix(file.Name(), ".avi") || strings.HasSuffix(file.Name(), ".mov") {
+			videoFiles = append(videoFiles, filepath.Join(folder, file.Name()))
+		}
+	}
+
+	if len(videoFiles) == 0 {
+		fmt.Printf("No video files found in the folder %s.\n", folder)
+		return
+	}
+
+	concatenateVideos(videoFiles, outputFilename)
+}
+
+func addAudioToVideo(videoFilename, audioFilename, outputFilename string) {
+	fmt.Printf("Adding audio %s to video %s, outputting to %s\n", audioFilename, videoFilename, outputFilename)
+	if !checkFileExists(videoFilename) || !checkFileExists(audioFilename) {
+		return
+	}
+
+	command := fmt.Sprintf("ffmpeg -i %s -i %s -c:v copy -c:a aac %s", videoFilename, audioFilename, outputFilename)
+	runFFmpegCommand(command)
+	fmt.Printf("Audio added and video saved as %s\n", outputFilename)
+}
+
+func fadeVideos(filename1, filename2, outputFilename string, duration int) {
+	fmt.Printf("Fading videos %s and %s with duration %d, outputting to %s\n", filename1, filename2, duration, outputFilename)
+	if !checkFileExists(filename1) || !checkFileExists(filename2) {
+		return
+	}
+
+	tempOutput1 := "temp_output1.mp4"
+	tempOutput2 := "temp_output2.mp4"
+
+	command1 := fmt.Sprintf("ffmpeg -i %s -vf 'fade=t=out:st=0:d=%d' %s", filename1, duration, tempOutput1)
+	command2 := fmt.Sprintf("ffmpeg -i %s -vf 'fade=t=in:st=0:d=%d' %s", filename2, duration, tempOutput2)
+
+	runFFmpegCommand(command1)
+	runFFmpegCommand(command2)
+
+	concatenateVideos([]string{tempOutput1, tempOutput2}, outputFilename)
+
+	os.Remove(tempOutput1)
+	os.Remove(tempOutput2)
+	fmt.Printf("Videos faded and saved as %s\n", outputFilename)
+}
+
+func playVideo(filename string) {
+	fmt.Printf("Playing video %s\n", filename)
+	if !checkFileExists(filename) {
+		return
+	}
+
+	command := fmt.Sprintf("ffplay %s", filename)
+	runFFmpegCommand(command)
+}
+
+func playAllVideosInFolder(folder string) {
+	fmt.Printf("Playing all videos in folder %s\n", folder)
+	if _, err := os.Stat(folder); os.IsNotExist(err) {
+		fmt.Printf("Error: The folder %s does not exist.\n", folder)
+		return
+	}
+
+	files, err := os.ReadDir(folder)
+	if err != nil {
+		handleError(err)
+		return
+	}
+
+	var videoFiles []string
+	for _, file := range files {
+		if strings.HasSuffix(file.Name(), ".mp4") || strings.HasSuffix(file.Name(), ".avi") || strings.HasSuffix(file.Name(), ".mov") {
+			videoFiles = append(videoFiles, filepath.Join(folder, file.Name()))
+		}
+	}
+
+	if len(videoFiles) == 0 {
+		fmt.Printf("No video files found in the folder %s.\n", folder)
+		return
+	}
+
+	for _, videoFile := range videoFiles {
+		fmt.Printf("Playing %s...\n", videoFile)
+		playVideo(videoFile)
+	}
 }
 
 func main() {
-	trimCmd := flag.NewFlagSet("trim", flag.ExitOnError)
-	trimFilename := trimCmd.String("filename", "", "The name of the file to process")
-	trimStart := trimCmd.String("start", "", "The start time in HH:MM:SS or MM:SS format")
-	trimEnd := trimCmd.String("end", "", "The end time in HH:MM:SS or MM:SS format")
-	trimOutput := trimCmd.String("output", "", "The name of the output file")
-
-	concatCmd := flag.NewFlagSet("concat", flag.ExitOnError)
-	concatFilename1 := concatCmd.String("filename1", "", "The name of the first file to process")
-	concatFilename2 := concatCmd.String("filename2", "", "The name of the second file to process")
-	concatOutput := concatCmd.String("output", "", "The name of the output file")
-
-	addAudioCmd := flag.NewFlagSet("add_audio", flag.ExitOnError)
-	addAudioVideoFilename := addAudioCmd.String("video_filename", "", "The name of the video file to process")
-	addAudioAudioFilename := addAudioCmd.String("audio_filename", "", "The name of the audio file to add")
-	addAudioOutput := addAudioCmd.String("output", "", "The name of the output file")
-
-	splitCmd := flag.NewFlagSet("split", flag.ExitOnError)
-	splitFilename := splitCmd.String("filename", "", "The name of the file to process")
-	splitDuration := splitCmd.String("duration", "", "The duration of each split part in HH:MM:SS or MM:SS format")
-
 	if len(os.Args) < 2 {
-		fmt.Println("expected 'trim', 'concat', 'add_audio', or 'split' subcommands")
-		os.Exit(1)
+		fmt.Println("Usage: go run movieEditor.go <command> [<args>]")
+		return
 	}
 
-	switch os.Args[1] {
-	case "trim":
-		trimCmd.Parse(os.Args[2:])
-		if *trimFilename == "" || *trimStart == "" || *trimEnd == "" || *trimOutput == "" {
-			trimCmd.Usage()
-			os.Exit(1)
+	command := os.Args[1]
+	fmt.Printf("Executing command: %s\n", command)
+
+	switch command {
+	case "trim", "-t", "trim_video", "--trim":
+		// Example: go run movieEditor.go trim input.mp4 00:00:10 00:00:20 output.mp4
+		if len(os.Args) != 6 {
+			fmt.Println("Usage: go run movieEditor.go trim <filename> <start> <end> <output>")
+			return
 		}
-		err := trimVideo(*trimFilename, *trimStart, *trimEnd, *trimOutput)
+		trimVideo(os.Args[2], os.Args[3], os.Args[4], os.Args[5])
+	case "concat", "-c", "concatenate", "--concat", "c":
+		// Example: go run movieEditor.go concat input1.mp4 input2.mp4 output.mp4
+		if len(os.Args) != 5 {
+			fmt.Println("Usage: go run movieEditor.go concat <filename1> <filename2> <output>")
+			return
+		}
+		concatenateVideos([]string{os.Args[2], os.Args[3]}, os.Args[4])
+	case "concat_folder", "-cf", "concat_folder_videos", "--concat_folder", "cf":
+		// Example: go run movieEditor.go concat_folder videos_folder output.mp4
+		if len(os.Args) != 4 {
+			fmt.Println("Usage: go run movieEditor.go concat_folder <folder> <output>")
+			return
+		}
+		concatenateVideosInFolder(os.Args[2], os.Args[3])
+	case "add_audio", "-a", "add_audio_to_video", "--add_audio":
+		// Example: go run movieEditor.go add_audio input.mp4 audio.mp3 output.mp4
+		if len(os.Args) != 5 {
+			fmt.Println("Usage: go run movieEditor.go add_audio <video_filename> <audio_filename> <output>")
+			return
+		}
+		addAudioToVideo(os.Args[2], os.Args[3], os.Args[4])
+	case "fade", "-f", "fade_videos", "--fade":
+		// Example: go run movieEditor.go fade input1.mp4 input2.mp4 output.mp4 5
+		if len(os.Args) != 6 {
+			fmt.Println("Usage: go run movieEditor.go fade <filename1> <filename2> <output> <duration>")
+			return
+		}
+		duration, err := strconv.Atoi(os.Args[5])
 		if err != nil {
-			fmt.Println("Error:", err)
+			handleError(err)
+			return
 		}
-	case "concat":
-		concatCmd.Parse(os.Args[2:])
-		if *concatFilename1 == "" || *concatFilename2 == "" || *concatOutput == "" {
-			concatCmd.Usage()
-			os.Exit(1)
+		fadeVideos(os.Args[2], os.Args[3], os.Args[4], duration)
+	case "play", "-p", "play_video", "--play", "p":
+		// Example: go run movieEditor.go play input.mp4
+		if len(os.Args) != 3 {
+			fmt.Println("Usage: go run movieEditor.go play <filename>")
+			return
 		}
-		err := concatenateVideos(*concatFilename1, *concatFilename2, *concatOutput)
-		if err != nil {
-			fmt.Println("Error:", err)
+		playVideo(os.Args[2])
+	case "play_all", "-pa", "play_all_videos", "--play_all":
+		// Example: go run movieEditor.go play_all videos_folder
+		if len(os.Args) != 3 {
+			fmt.Println("Usage: go run movieEditor.go play_all <folder>")
+			return
 		}
-	case "add_audio":
-		addAudioCmd.Parse(os.Args[2:])
-		if *addAudioVideoFilename == "" || *addAudioAudioFilename == "" || *addAudioOutput == "" {
-			addAudioCmd.Usage()
-			os.Exit(1)
-		}
-		err := addAudioToVideo(*addAudioVideoFilename, *addAudioAudioFilename, *addAudioOutput)
-		if err != nil {
-			fmt.Println("Error:", err)
-		}
-	case "split":
-		splitCmd.Parse(os.Args[2:])
-		if *splitFilename == "" || *splitDuration == "" {
-			splitCmd.Usage()
-			os.Exit(1)
-		}
-		err := splitVideo(*splitFilename, *splitDuration)
-		if err != nil {
-			fmt.Println("Error:", err)
-		}
+		playAllVideosInFolder(os.Args[2])
 	default:
-		fmt.Println("expected 'trim', 'concat', 'add_audio', or 'split' subcommands")
-		os.Exit(1)
+		fmt.Println("Usage: go run movieEditor.go <command> [<args>]")
+		fmt.Println("Commands:")
+		fmt.Println("  trim, -t, trim_video, --trim <filename> <start> <end> <output> - Trim a video")
+		fmt.Println("  concat, -c, concatenate, --concat <filename1> <filename2> <output> - Concatenate two videos")
+		fmt.Println("  concat_folder, -cf, concat_folder_videos, --concat_folder <folder> <output> - Concatenate all videos in a folder")
+		fmt.Println("  add_audio, -a, add_audio_to_video, --add_audio <video_filename> <audio_filename> <output> - Add audio to a video")
+		fmt.Println("  fade, -f, fade_videos, --fade <filename1> <filename2> <output> <duration> - Fade between two videos")
+		fmt.Println("  play, -p, play_video, --play <filename> - Play a video")
+		fmt.Println("  play_all, -pa, play_all_videos, --play_all <folder> - Play all videos in a folder")
 	}
 }
